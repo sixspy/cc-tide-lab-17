@@ -66,6 +66,16 @@
         </div>
       </section>
       <section class="卷">
+        <h2>潮切台策略 · 三联窗贯验工程形态</h2>
+        <p class="说明">贯验前先选定工程形态，徽章与三表同票。可在「窗贯验」页看只读五字段与窗贯验列表。</p>
+        <div class="工具">
+          当前策略：<b id="策略名">加载中…</b>
+          <button class="按钮 次" id="策略三表">切到 三表联查</button>
+          <button class="按钮 次" id="策略双表">切到 双表加旁路附件</button>
+          <a class="按钮 青" href="/窗贯验.html">去窗贯验</a>
+        </div>
+      </section>
+      <section class="卷">
         <h2>水位</h2>
         <div class="水位" id="水位"></div>
         <div class="工具">
@@ -95,6 +105,23 @@
       document.getElementById("灌迟到").onclick = () => 跑(() => 潮切.postJSON("/api/观测点/夹具/迟到样例"));
       document.getElementById("关窗").onclick = () => 跑(() => 潮切.postJSON("/api/关窗/跑"));
       document.getElementById("贯验").onclick = () => 跑(() => 潮切.postJSON("/api/窗贯验/跑"));
+      async function 刷策略() {
+        try {
+          const d = await 潮切.getJSON("/api/窗贯验/形态");
+          document.getElementById("策略名").textContent = d["形态"] || "双表加旁路附件";
+        } catch (e) {
+          document.getElementById("策略名").textContent = "双表加旁路附件";
+        }
+      }
+      document.getElementById("策略三表").onclick = () => 跑(async () => {
+        const r = await 潮切.postJSON("/api/窗贯验/形态", { 形态: "三表联查" });
+        await 刷策略(); return r;
+      });
+      document.getElementById("策略双表").onclick = () => 跑(async () => {
+        const r = await 潮切.postJSON("/api/窗贯验/形态", { 形态: "双表加旁路附件" });
+        await 刷策略(); return r;
+      });
+      刷策略();
       刷新();
       </script>
 

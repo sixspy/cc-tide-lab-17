@@ -40,3 +40,10 @@ app = Starlette(
     ],
     on_startup=[启动],
 )
+
+# 导入即建表的安全网：部分测试直接 TestClient(app) 而不进入 with 上下文，
+# 此时 Starlette 不会触发 startup 事件。幂等，可重复执行。
+try:
+    seed.初始化库()
+except Exception:  # 环境目录暂不可写等场景留给 startup/服务内 _确保库 再试
+    pass

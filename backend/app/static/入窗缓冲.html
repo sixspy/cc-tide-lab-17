@@ -6,6 +6,13 @@
   <title>入窗缓冲 · 潮切</title>
   <link rel="stylesheet" href="/styles.css"/>
   <script src="/common.js"></script>
+  <style>
+    .详情格{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
+    .详情格 .cell{background:#f7f3ea;border:1px solid var(--line,#e3ddd2);border-radius:12px;padding:10px;text-align:center}
+    .详情格 .num{font-size:22px;font-weight:800}.详情格 .lab{color:#7a7264;font-size:13px}
+    tbody tr{cursor:pointer}
+    pre.详情{background:#20242b;color:#e8e2d2;border-radius:12px;padding:12px;min-height:64px;white-space:pre-wrap}
+  </style>
 </head>
 <body>
   <div class="壳">
@@ -21,9 +28,9 @@
         <div class="点"><b>装载</b>观测点入流</div>
         <div class="点"><b>入窗</b>事件时进缓冲</div>
         <div class="点"><b>关窗</b>物化切片账</div>
-        <div class="点"><b>贯验</b>缓冲↔切片互证</div>
+        <div class="点"><b>贯验</b>三计数同事务互证</div>
       </div>
-      
+
       <nav class="侧链">
         <a href="/" >潮切台</a>
         <a href="/观测流.html" >观测流</a>
@@ -39,21 +46,50 @@
     <main class="主区">
       <header class="页头">
         <h1>入窗缓冲</h1>
-        <p>事件时落在当前窗、尚未关窗物化的在途集合。</p>
+        <p>事件时落在当前窗、尚未关窗物化的在途集合。点任意一行查看「入窗缓冲详情」。</p>
       </header>
 
       <section class="卷">
+        <h2>入窗缓冲总览</h2>
+        <div class="详情格">
+          <div class="cell"><div class="num" id="总缓冲">–</div><div class="lab">缓冲数（全量）</div></div>
+          <div class="cell"><div class="num" id="在缓冲">–</div><div class="lab">在缓冲</div></div>
+          <div class="cell"><div class="num" id="已物化">–</div><div class="lab">已物化</div></div>
+          <div class="cell"><div class="num" id="切片事件数">–</div><div class="lab">切片事件数</div></div>
+        </div>
         <div class="表绕"><table><thead><tr><th>事件编号</th><th>运单键</th><th>窗号</th><th>事件时</th><th>命运</th></tr></thead><tbody id="表"></tbody></table></div>
       </section>
-      <section class="卷"><div class="双栏"><p class="说明">缓冲是关窗前的在途。关窗后命运应变为已物化，条数应下降。</p><div class="侧注">版式：左侧窗时间轴。对拍是顶栏双轨，肉眼应能分开。</div></div></section>
+
+      <section class="卷">
+        <h2>入窗缓冲详情</h2>
+        <pre class="详情" id="详情">点击上方任意一条缓冲记录，这里显示该笔入窗缓冲详情（含事件编号、窗号、事件时与命运）。</pre>
+      </section>
+
+      <section class="卷"><div class="双栏"><p class="说明">缓冲是关窗前的在途。关窗后命运应变为已物化；三联贯验里缓冲数与切片事件数、迟到数同读同判。</p><div class="侧注">版式：左侧窗时间轴。对拍是顶栏双轨，肉眼应能分开。</div></div></section>
       <script>
+      let 行数据 = [];
+      function 显详情(i) {
+        const r = 行数据[i];
+        document.getElementById("详情").textContent = JSON.stringify(r, null, 2);
+      }
+      window.显详情 = 显详情;
       (async () => {
-        const rows = await 潮切.getJSON("/api/入窗缓冲");
+        const [rows, ro] = await Promise.all([
+          潮切.getJSON("/api/入窗缓冲"),
+          潮切.getJSON("/api/窗贯验/只读").catch(() => ({})),
+        ]);
+        行数据 = rows;
+        document.getElementById("总缓冲").textContent = ro["缓冲数"] ?? rows.length;
+        document.getElementById("在缓冲").textContent = ro["在缓冲数"] ?? rows.filter(r => r.命运 === "在缓冲").length;
+        document.getElementById("已物化").textContent = ro["已物化缓冲数"] ?? rows.filter(r => r.命运 === "已物化").length;
+        document.getElementById("切片事件数").textContent = ro["切片事件数"] ?? "–";
         const tb = document.getElementById("表");
         if (!rows.length) { tb.innerHTML = `<tr><td colspan="5">${潮切.空态("缓冲为空。要么尚未装载，要么已经关窗物化。")}</td></tr>`; return; }
-        for (const r of rows) {
-          tb.appendChild(潮切.行(`<td>${潮切.安全文本(r.事件编号)}</td><td>${潮切.安全文本(r.运单键)}</td><td>${潮切.安全文本(r.窗号)}</td><td>${潮切.安全文本(r.事件时)}</td><td>${潮切.徽章(r.命运)}</td>`));
-        }
+        rows.forEach((r, i) => {
+          const tr = 潮切.行(`<td>${潮切.安全文本(r.事件编号)}</td><td>${潮切.安全文本(r.运单键)}</td><td>${潮切.安全文本(r.窗号)}</td><td>${潮切.安全文本(r.事件时)}</td><td>${潮切.徽章(r.命运, r.命运 === "已物化" ? "好" : "")}</td>`);
+          tr.onclick = () => 显详情(i);
+          tb.appendChild(tr);
+        });
       })();
       </script>
 

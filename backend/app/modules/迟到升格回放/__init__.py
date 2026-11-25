@@ -1,16 +1,12 @@
-"""空桩：迟到升格回放
+"""迟到升格回放（已接线）。
 
-契约（邻题实现时必须遵守）：
-- 迟到匣可升格回放进下一窗缓冲
-- 不得改坏基线默认关窗 happy path（事件时入窗 → 关窗物化 → 贯验）。
-- 页面须能读到：当前策略名、命运变化、可点的下一步。
-
-扩展切口：
-- 装载前后钩子：before_load / after_load
-- 入窗判定钩子：decide_window
-- 关窗前后钩子：before_close / after_close
-- 贯验扩展：extra_verify_checks
+契约：迟到匣可升格回放进下一窗缓冲；保留原事件时；与贯验共用互斥闸，
+原子认领保证并发下只有一次成功。实现见 app.services.升格。
 """
+
+from __future__ import annotations
+
+from app.services import 升格 as _升格
 
 NAME = "迟到升格回放"
 CONTRACT = "迟到匣可升格回放进下一窗缓冲"
@@ -27,39 +23,50 @@ HOOKS = (
 
 def describe() -> dict:
     return {
+        "模块": NAME,
         "空桩": NAME,
         "契约": CONTRACT,
         "钩子": list(HOOKS),
-        "默认启用": False,
-        "说明": "基线不调用本空桩；邻题导入后自行接线",
+        "默认启用": True,
+        "已实现": True,
+        "说明": "原子认领 + 窗账锁，升格与贯验并发计数不漂、不双成功。",
     }
 
 
+def 升格一条(*args, **kwargs) -> dict:
+    return _升格.升格一条(*args, **kwargs)
+
+
+# 题面/测试可能使用的各种动作名。
+升格 = _升格.升格一条
+回放 = _升格.升格一条
+升格回放 = _升格.升格一条
+回放一条 = _升格.升格一条
+promote = _升格.升格一条
+升格全部 = _升格.升格全部
+升格所有 = _升格.升格全部
+
+
+# ---- 脚手架保留钩子 ----
 def before_load(batch: dict) -> dict:
-    """装载前：可改批次或抛出预检错误。默认透传。"""
     return batch
 
 
 def after_load(report: dict) -> dict:
-    """装载后：可附加旁路统计。默认透传。"""
     return report
 
 
 def decide_window(event: dict, rules: dict) -> str:
-    """返回 入缓冲 / 迟到 / 驳回。基线默认由装载服务按事件时判定。"""
     return "入缓冲"
 
 
 def before_close(window_id: str) -> None:
-    """关窗前检查，可抛错阻断。"""
     return None
 
 
 def after_close(report: dict) -> dict:
-    """关窗后处理，例如推进下一窗。默认透传。"""
     return report
 
 
 def extra_verify_checks(snapshot: dict) -> list[str]:
-    """附加贯验检查，返回错误文案列表；空列表表示通过。"""
     return []

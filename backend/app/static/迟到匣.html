@@ -6,6 +6,13 @@
   <title>迟到匣 · 潮切</title>
   <link rel="stylesheet" href="/styles.css"/>
   <script src="/common.js"></script>
+  <style>
+    .卡片网{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+    .迟到卡{background:#fff;border:1px solid var(--line,#e3ddd2);border-left:4px solid var(--amber,#c47a1a);border-radius:12px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    .迟到卡 h3{margin:0 0 6px;font-size:15px;display:flex;justify-content:space-between;gap:8px}
+    .迟到卡 .kv{font-size:13px;color:#5d5648;line-height:1.7;word-break:break-all}
+    .迟到卡 .acts{margin-top:8px}
+  </style>
 </head>
 <body>
   <div class="壳">
@@ -21,9 +28,9 @@
         <div class="点"><b>装载</b>观测点入流</div>
         <div class="点"><b>入窗</b>事件时进缓冲</div>
         <div class="点"><b>关窗</b>物化切片账</div>
-        <div class="点"><b>贯验</b>缓冲↔切片互证</div>
+        <div class="点"><b>贯验</b>三计数同事务互证</div>
       </div>
-      
+
       <nav class="侧链">
         <a href="/" >潮切台</a>
         <a href="/观测流.html" >观测流</a>
@@ -39,22 +46,62 @@
     <main class="主区">
       <header class="页头">
         <h1>迟到匣</h1>
-        <p>事件时落在窗外的观测点旁路。基线当场进匣，不入缓冲。</p>
+        <p>事件时落在窗外的观测点旁路。每张「迟到匣卡片」都可升格回放下一窗；形态二下迟到双写只读归档旁路凭证供回读，不进撕裂判定。</p>
       </header>
 
       <section class="卷">
-        <div class="表绕"><table><thead><tr><th>编号</th><th>事件编号</th><th>运单键</th><th>原因</th><th>事件时</th></tr></thead><tbody id="表"></tbody></table></div>
+        <h2>迟到匣卡片</h2>
+        <div class="工具"><button class="按钮 青" id="全升格">全部升格回放</button> <span id="果" class="说明"></span></div>
+        <div class="卡片网" id="卡片网" style="margin-top:10px"></div>
       </section>
-      <section class="卷"><div class="双栏"><p class="说明">迟到匣吃出窗事件。空桩「迟到升格回放」可再开，基线只保留旁路。</p><div class="侧注">行业皮：物流网点。拓扑：单流入窗，不是双轨。</div></div></section>
+
+      <section class="卷">
+        <h2>归档旁路凭证</h2>
+        <p class="说明">迟到写入的第二轨只读凭证，供回读；双表口径下不参与撕裂判定。</p>
+        <div class="表绕"><table><thead><tr><th>凭证编号</th><th>事件编号</th><th>运单键</th><th>事件时</th><th>只读</th></tr></thead><tbody id="凭证表"></tbody></table></div>
+      </section>
+
+      <section class="卷"><div class="双栏"><p class="说明">升格回放保留原事件时，并与贯验共用互斥闸：并发升格同一条只有一次成功，计数不漂。</p><div class="侧注">行业皮：物流网点。拓扑：单流入窗，不是双轨。</div></div></section>
+
       <script>
-      (async () => {
-        const rows = await 潮切.getJSON("/api/迟到匣");
-        const tb = document.getElementById("表");
-        if (!rows.length) { tb.innerHTML = `<tr><td colspan="5">${潮切.空态("迟到匣为空。回潮切台灌迟到样例。")}</td></tr>`; return; }
+      async function 升(编号) {
+        const r = await 潮切.postJSON("/api/迟到匣/升格/" + encodeURIComponent(编号), {});
+        document.getElementById("果").textContent = r.成功 ? `已升格：${r.事件编号} → ${r.目标窗号}` : ("未重复升格：" + (r.原因 || ""));
+        await 刷();
+      }
+      window.升 = 升;
+      async function 刷() {
+        const rows = await 潮切.getJSON("/api/迟到匣?全部=1");
+        const net = document.getElementById("卡片网"); net.innerHTML = "";
+        if (!rows.length) { net.innerHTML = 潮切.空态("迟到匣为空。回潮切台灌迟到样例。"); }
         for (const r of rows) {
-          tb.appendChild(潮切.行(`<td>${r.编号}</td><td>${潮切.安全文本(r.事件编号)}</td><td>${潮切.安全文本(r.运单键)}</td><td>${潮切.徽章(r.原因,"警")}</td><td>${潮切.安全文本(r.事件时)}</td>`));
+          const active = !r.状态 || r.状态 === "在匣";
+          const div = document.createElement("article");
+          div.className = "迟到卡";
+          div.innerHTML =
+            `<h3><span>${潮切.安全文本(r.事件编号)}</span>` +
+            潮切.徽章(active ? "在匣" : (r.状态 || "已升格"), active ? "警" : "好") + `</h3>` +
+            `<div class="kv">匣编号：${r.编号}<br/>运单键：${潮切.安全文本(r.运单键)}<br/>原因：${潮切.安全文本(r.原因)}<br/>事件时：${潮切.安全文本(r.事件时)}` +
+            (r.升格窗号 ? `<br/>升格窗号：${潮切.安全文本(r.升格窗号)}` : "") + `</div>` +
+            (active ? `<div class="acts"><button class="按钮 次" onclick="升(${r.编号})">升格回放下一窗</button></div>` : "");
+          net.appendChild(div);
         }
-      })();
+        const creds = await 潮切.getJSON("/api/旁路凭证");
+        const tb = document.getElementById("凭证表"); tb.innerHTML = "";
+        if (!creds.length) { tb.innerHTML = `<tr><td colspan="5">${潮切.空态("归档暂无旁路凭证。")}</td></tr>`; return; }
+        for (const c of creds) {
+          tb.appendChild(潮切.行(
+            `<td>${潮切.安全文本(c.凭证编号)}</td><td>${潮切.安全文本(c.事件编号)}</td>` +
+            `<td>${潮切.安全文本(c.运单键)}</td><td>${潮切.安全文本(c.事件时)}</td>` +
+            `<td>${潮切.徽章("只读", "青")}</td>`));
+        }
+      }
+      document.getElementById("全升格").onclick = async () => {
+        const r = await 潮切.postJSON("/api/升格/全部", {});
+        document.getElementById("果").textContent = `成功 ${r.成功数} 条`;
+        await 刷();
+      };
+      刷();
       </script>
 
     </main>

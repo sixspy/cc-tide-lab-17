@@ -47,6 +47,19 @@ def 关当前窗() -> dict:
             (批, 窗号, 时刻, 成片, json.dumps(报告, ensure_ascii=False)),
         )
         conn.commit()
+        # 关窗入库结果的贯验编排：提交后读一次只读贯验快照随回执返回（不额外写结论）。
+        try:
+            from app.services import 贯验
+
+            快照 = 贯验.只读()
+            报告["贯验"] = 快照
+            报告["贯验结果"] = 快照
+            报告["valid"] = 快照.get("valid")
+            报告["是否对齐"] = 快照.get("是否对齐")
+            报告["撕裂标记"] = 快照.get("撕裂标记")
+        except Exception:
+            # 贯验快照失败不应反过来把关窗已提交结果改写成失败；显式留痕。
+            报告["贯验"] = None
         return 报告
     finally:
         conn.close()
